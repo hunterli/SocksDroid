@@ -39,6 +39,10 @@
 #include <misc/strdup.h>
 #include <base/BLog.h>
 
+#ifdef ANDROID
+#include <protect_fd.h>
+#endif
+
 #include "BConnection.h"
 
 #include <generated/blog_channel_BConnection.h>
@@ -661,7 +665,11 @@ int BConnector_Init (BConnector *o, BAddr addr, BReactor *reactor, void *user,
         BLog(BLOG_ERROR, "badvpn_set_nonblocking failed");
         goto fail2;
     }
-    
+#ifdef ANDROID
+    if (1 == o->should_protect) {
+        protect_fd(o->protect_fd_sock, o->fd);
+    }
+#endif
     // connect fd
     int res = connect(o->fd, &sysaddr.addr.generic, sysaddr.len);
     if (res < 0 && errno != EINPROGRESS) {

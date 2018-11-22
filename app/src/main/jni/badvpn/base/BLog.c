@@ -58,7 +58,7 @@ static void stdout_log (int channel, int level, const char *msg)
 #ifndef ANDROID
     fprintf(stdout, "%s(%s): %s\n", level_names[level], blog_global.channels[channel].name, msg);
 #else
-    __android_log_print(ANDROID_LOG_DEBUG, "tun2socks", 
+    __android_log_print(ANDROID_LOG_ERROR, "xmobile", 
             "%s(%s): %s\n", level_names[level], blog_global.channels[channel].name, msg);
 #endif
 }
@@ -68,7 +68,7 @@ static void stderr_log (int channel, int level, const char *msg)
 #ifndef ANDROID
     fprintf(stderr, "%s(%s): %s\n", level_names[level], blog_global.channels[channel].name, msg);
 #else
-    __android_log_print(ANDROID_LOG_ERROR, "tun2socks", 
+    __android_log_print(ANDROID_LOG_ERROR, "xmobile", 
             "%s(%s): %s\n", level_names[level], blog_global.channels[channel].name, msg);
 #endif
 }

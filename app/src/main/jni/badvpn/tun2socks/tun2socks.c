@@ -194,10 +194,11 @@ struct {
     int udpgw_connection_buffer_size;
     int udpgw_transparent_dns;
 #ifdef ANDROID
-    int tun_fd;
     int tun_mtu;
     int fake_proc;
     char *pid;
+    char *tun_fd_sock;
+    char *protect_fd_sock;
     char *dnsgw;
 #else
     char *tundev;
@@ -502,7 +503,7 @@ int main (int argc, char **argv)
         goto fail2;
     }
 
-    char *path = "/data/data/net.typeblog.socks/sock_path";
+    char *path = options.tun_fd_sock;
     unlink(path);
     memset(&addr, 0, sizeof(addr));
     addr.sun_family = AF_UNIX;
@@ -524,7 +525,7 @@ int main (int argc, char **argv)
         int sock2;
         struct sockaddr_un remote;
         int t = sizeof(remote);
-        if ((sock2 = accept(sock, (struct sockaddr *)&remote, &t)) == -1) { 
+        if ((sock2 = accept(sock, (struct sockaddr *)&remote, &t)) == -1) {
             BLog(BLOG_ERROR, "accept() failed: %s (sock = %d)\n", strerror(errno), sock);
             continue;
         }
@@ -717,10 +718,11 @@ void print_help (const char *name)
         "        [--channel-loglevel <channel-name> <0-5/none/error/warning/notice/info/debug>] ...\n"
 #ifdef ANDROID
         "        [--fake-proc]\n"
-        "        [--tunfd <fd>]\n"
         "        [--tunmtu <mtu>]\n"
         "        [--dnsgw <dns_gateway_address>]\n"
         "        [--pid <pid_file>]\n"
+        "        [--tun-fd-sock <tun_fd_sock_file>]\n"
+        "        [--protect-fd-sock <protect_fd_sock_file>]\n"
 #else
         "        [--tundev <name>]\n"
 #endif
@@ -769,10 +771,11 @@ int parse_arguments (int argc, char *argv[])
         options.loglevels[i] = -1;
     }
 #ifdef ANDROID
-    options.tun_fd = -1;
     options.tun_mtu = 1500;
     options.fake_proc = 0;
     options.pid = NULL;
+    options.tun_fd_sock = NULL;
+    options.protect_fd_sock = NULL;
 #else
     options.tundev = NULL;
 #endif
@@ -869,17 +872,6 @@ int parse_arguments (int argc, char *argv[])
         else if (!strcmp(arg, "--fake-proc")) {
             options.fake_proc = 1;
         }
-        else if (!strcmp(arg, "--tunfd")) {
-            if (1 >= argc - i) {
-                fprintf(stderr, "%s: requires an argument\n", arg);
-                return 0;
-            }
-            if ((options.tun_fd = atoi(argv[i + 1])) <= 0) {
-                fprintf(stderr, "%s: wrong argument\n", arg);
-                return 0;
-            }
-            i++;
-        }
         else if (!strcmp(arg, "--tunmtu")) {
             if (1 >= argc - i) {
                 fprintf(stderr, "%s: requires an argument\n", arg);
@@ -905,6 +897,22 @@ int parse_arguments (int argc, char *argv[])
                 return 0;
             }
             options.pid = argv[i + 1];
+            i++;
+        }
+        else if (!strcmp(arg, "--tun-fd-sock")) {
+            if (1 >= argc - i) {
+                fprintf(stderr, "%s: requires an argument\n", arg);
+                return 0;
+            }
+            options.tun_fd_sock = argv[i + 1];
+            i++;
+        }
+        else if (!strcmp(arg, "--protect-fd-sock")) {
+            if (1 >= argc - i) {
+                fprintf(stderr, "%s: requires an argument\n", arg);
+                return 0;
+            }
+            options.protect_fd_sock = argv[i + 1];
             i++;
         }
 #else
@@ -1747,7 +1755,10 @@ err_t listener_accept_func (void *arg, struct tcp_pcb *newpcb, err_t err)
         socks_auth_info[1].password.username = client->socks_username;
         socks_auth_info[1].password.username_len = strlen(client->socks_username);
     }
-
+#ifdef ANDROID
+    client->socks_client.connector.should_protect = 1;
+    client->socks_client.connector.protect_fd_sock = options.protect_fd_sock;
+#endif
     // init SOCKS
     if (!BSocksClient_Init(&client->socks_client, socks_server_addr, socks_auth_info, socks_num_auth_info,
                            addr, (BSocksClient_handler)client_socks_handler, client, &ss)) {

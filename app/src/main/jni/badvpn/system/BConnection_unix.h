@@ -51,6 +51,10 @@ struct BConnector_s {
     BConnector_handler handler;
     BPending job;
     int fd;
+#ifdef ANDROID
+    int should_protect;
+    char *protect_fd_sock;
+#endif
     int connected;
     int have_bfd;
     BFileDescriptor bfd;
